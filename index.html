@@ -16,20 +16,32 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col select-none">
 
     <!-- Шапка -->
-    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 sticky top-0 z-20">
+    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 sticky top-0 z-20 shadow-lg">
         <div class="max-w-md mx-auto flex justify-between items-center">
             <div>
                 <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
                     План недели
                 </h1>
-                <p id="currentMonthYear" class="text-[11px] text-slate-400 capitalize mt-0.5">Загрузка...</p>
+                <div class="flex items-center gap-2 mt-0.5">
+                    <p id="currentMonthYear" class="text-[11px] text-slate-400 capitalize">Загрузка...</p>
+                    <select id="monthSelect" onchange="changeMonth(this.value)" class="bg-slate-800 text-indigo-300 text-[10px] rounded px-1.5 py-0.5 border border-slate-700 outline-none">
+                        <!-- Месяцы заполняются скриптом -->
+                    </select>
+                </div>
             </div>
             <button onclick="jumpToToday()" class="text-xs bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 px-3 py-1.5 rounded-xl font-medium active:scale-95 transition">Сегодня</button>
+        </div>
+        <!-- Прогресс недели -->
+        <div class="max-w-md mx-auto mt-2.5 flex items-center gap-3">
+            <div class="flex-1 bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div id="weekProgressBar" class="bg-indigo-500 h-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+            <span id="weekProgressText" class="text-[10px] text-slate-400 font-medium">0%</span>
         </div>
     </header>
 
     <!-- Лента дней недели -->
-    <div class="bg-slate-900/40 border-b border-slate-800/60 py-2.5 sticky top-[53px] z-10 backdrop-blur-md">
+    <div class="bg-slate-900/40 border-b border-slate-800/60 py-2.5 sticky top-[77px] z-10 backdrop-blur-md">
         <div class="max-w-md mx-auto px-4 flex gap-2 overflow-x-auto" id="weekStrip"></div>
     </div>
 
@@ -38,25 +50,77 @@
         
         <div class="flex justify-between items-center mb-3">
             <h2 id="activeDayTitle" class="text-sm font-semibold text-slate-300 capitalize">День</h2>
-            <span id="taskCounter" class="text-[11px] bg-slate-900 border border-slate-800 px-2.5 py-0.5 rounded-lg text-slate-400 font-medium">0 задач</span>
+            <div class="flex items-center gap-2">
+                <button onclick="clearCompletedTasks()" title="Удалить выполненные" class="text-[11px] text-slate-500 hover:text-red-400 transition">Очистить готовые</button>
+                <span id="taskCounter" class="text-[11px] bg-slate-900 border border-slate-800 px-2.5 py-0.5 rounded-lg text-slate-400 font-medium">0 задач</span>
+            </div>
         </div>
 
-        <!-- Поле ввода -->
-        <div class="flex gap-2 mb-4">
-            <input type="text" id="taskInput" placeholder="Новая задача..." class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 text-white placeholder-slate-500 transition shadow-inner">
-            <button onclick="addTask()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-5 rounded-xl transition shadow-lg shadow-indigo-600/20 active:scale-95 flex items-center justify-center text-xl">+</button>
+        <!-- Предупреждение для прошедших дат -->
+        <div id="pastDateWarning" class="hidden mb-3 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs px-3 py-2 rounded-xl text-center">
+            Нельзя добавлять задачи в прошедшие даты
+        </div>
+
+        <!-- Панель форматирования текста -->
+        <div id="taskInputContainer" class="bg-slate-900 border border-slate-800 rounded-2xl p-2 mb-4 shadow-inner">
+            <div class="flex items-center gap-1 mb-2 px-1 border-b border-slate-800 pb-1.5 text-xs text-slate-400">
+                <button onclick="formatText('bold')" class="px-2 py-1 hover:bg-slate-800 rounded font-bold text-white" title="Жирный">B</button>
+                <button onclick="formatText('italic')" class="px-2 py-1 hover:bg-slate-800 rounded italic text-white" title="Курсив">I</button>
+                <button onclick="formatText('underline')" class="px-2 py-1 hover:bg-slate-800 rounded underline text-white" title="Подчеркнутый">U</button>
+                <select id="textColor" onchange="formatColor(this.value)" class="bg-slate-800 text-slate-300 rounded px-1 py-0.5 text-xs border-none outline-none">
+                    <option value="text-slate-200">Цвет текста</option>
+                    <option value="text-indigo-400">Индиго</option>
+                    <option value="text-emerald-400">Зеленый</option>
+                    <option value="text-amber-400">Желтый</option>
+                    <option value="text-rose-400">Красный</option>
+                </select>
+                <select id="textSize" onchange="formatSize(this.value)" class="bg-slate-800 text-slate-300 rounded px-1 py-0.5 text-xs border-none outline-none">
+                    <option value="text-xs">Мелкий</option>
+                    <option value="text-sm" selected>Обычный</option>
+                    <option value="text-base">Крупный</option>
+                </select>
+            </div>
+            <div class="flex gap-2">
+                <input type="text" id="taskInput" placeholder="Новая задача..." class="flex-1 bg-transparent px-3 py-1.5 text-sm focus:outline-none text-white placeholder-slate-500">
+                <button onclick="addTask()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-xl transition shadow-lg shadow-indigo-600/20 active:scale-95 text-lg">+</button>
+            </div>
         </div>
 
         <!-- Список задач -->
         <div id="taskList" class="space-y-2.5 flex-1"></div>
     </main>
 
+    <!-- Модальное окно повторения задачи -->
+    <div id="repeatModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl p-5 shadow-2xl">
+            <h3 class="text-sm font-semibold text-white mb-3">Повторять задачу</h3>
+            <p class="text-xs text-slate-400 mb-4" id="repeatTaskTitle"></p>
+            <div class="space-y-2 mb-4">
+                <button onclick="applyRepeat('day')" class="w-full text-left px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-white transition">Каждый день</button>
+                <button onclick="applyRepeat('week')" class="w-full text-left px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-white transition">Каждую неделю</button>
+                <button onclick="applyRepeat('year')" class="w-full text-left px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-white transition">Каждый год</button>
+            </div>
+            <div class="flex justify-end">
+                <button onclick="closeRepeatModal()" class="px-4 py-2 rounded-xl text-xs bg-slate-800 text-slate-300 font-medium active:scale-95 transition">Отмена</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let selectedDate = new Date();
         let tasks = JSON.parse(localStorage.getItem('plan_nedeli_storage')) || {};
+        let activeRepeatTask = null;
 
         function formatDateKey(date) {
             return date.toISOString().split('T')[0];
+        }
+
+        function isPastDate(date) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const checkDate = new Date(date);
+            checkDate.setHours(0, 0, 0, 0);
+            return checkDate < today;
         }
 
         function getStartOfWeek(date) {
@@ -68,8 +132,23 @@
 
         function renderApp() {
             renderHeaderInfo();
+            renderMonthSelect();
             renderWeekStrip();
             renderTaskList();
+            updateWeekProgress();
+            checkPastDateState();
+        }
+
+        function checkPastDateState() {
+            const warning = document.getElementById('pastDateWarning');
+            const inputContainer = document.getElementById('taskInputContainer');
+            if (isPastDate(selectedDate)) {
+                warning.classList.remove('hidden');
+                inputContainer.classList.add('opacity-50', 'pointer-events-none');
+            } else {
+                warning.classList.add('hidden');
+                inputContainer.classList.remove('opacity-50', 'pointer-events-none');
+            }
         }
 
         function renderHeaderInfo() {
@@ -78,6 +157,22 @@
 
             const optionsDay = { weekday: 'long', day: 'numeric', month: 'long' };
             document.getElementById('activeDayTitle').innerText = selectedDate.toLocaleDateString('ru-RU', optionsDay);
+        }
+
+        function renderMonthSelect() {
+            const select = document.getElementById('monthSelect');
+            const months = [
+                "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+                "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+            ];
+            select.innerHTML = months.map((m, index) => `
+                <option value="${index}" ${selectedDate.getMonth() === index ? 'selected' : ''}>${m}</option>
+            `).join('');
+        }
+
+        function changeMonth(monthIndex) {
+            selectedDate.setMonth(parseInt(monthIndex));
+            renderApp();
         }
 
         function renderWeekStrip() {
@@ -89,12 +184,14 @@
                 const currentDay = new Date(startOfWeek);
                 currentDay.setDate(startOfWeek.getDate() + i);
 
-                const isSelected = formatDateKey(currentDay) === formatDateKey(selectedDate);
-                const isToday = formatDateKey(currentDay) === formatDateKey(new Date());
+                const key = formatDateKey(currentDay);
+                const isSelected = key === formatDateKey(selectedDate);
+                const isToday = key === formatDateKey(new Date());
+                const hasTasks = tasks[key] && tasks[key].length > 0;
 
                 const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
                 const btn = document.createElement('button');
-                btn.className = `flex flex-col items-center justify-center min-w-[46px] py-1.5 px-1 rounded-xl transition border active:scale-95 ${
+                btn.className = `flex flex-col items-center justify-center min-w-[46px] py-1.5 px-1 rounded-xl transition border relative active:scale-95 ${
                     isSelected 
                         ? 'bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-600/30' 
                         : isToday 
@@ -105,6 +202,7 @@
                 btn.innerHTML = `
                     <span class="text-[9px] font-semibold uppercase tracking-wider mb-0.5">${dayNames[i]}</span>
                     <span class="text-xs font-bold">${currentDay.getDate()}</span>
+                    ${hasTasks ? '<span class="absolute bottom-1 w-1 h-1 bg-indigo-400 rounded-full"></span>' : ''}
                 `;
 
                 btn.onclick = () => {
@@ -135,14 +233,58 @@
                 <div class="flex items-center justify-between bg-slate-900/80 border border-slate-800/80 px-3.5 py-3 rounded-xl shadow-sm transition group">
                     <label class="flex items-center gap-3 cursor-pointer flex-1 mr-2">
                         <input type="checkbox" ${task.completed ? 'checked' : ''} onclick="toggleTask(${index})" class="w-4 h-4 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-800 cursor-pointer">
-                        <span class="text-xs transition ${task.completed ? 'line-through text-slate-600' : 'text-slate-200'}">${escapeHtml(task.text)}</span>
+                        <span class="transition flex-1 ${task.completed ? 'line-through text-slate-600' : (task.style || 'text-slate-200')} ${task.size || 'text-sm'}">${escapeHtml(task.text)}</span>
                     </label>
-                    <button onclick="deleteTask(${index})" class="text-slate-600 hover:text-red-400 p-1 transition opacity-60 group-hover:opacity-100">✕</button>
+                    <div class="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition">
+                        <button onclick="openRepeatModal(${index})" title="Повторять" class="text-slate-500 hover:text-indigo-400 p-1 transition text-xs">🔁</button>
+                        <button onclick="moveTaskToTomorrow(${index})" title="Перенести на завтра" class="text-slate-500 hover:text-indigo-400 p-1 transition text-xs">➔</button>
+                        <button onclick="deleteTask(${index})" title="Удалить" class="text-slate-500 hover:text-red-400 p-1 transition text-xs">✕</button>
+                    </div>
                 </div>
             `).join('');
         }
 
+        let currentFormatting = { style: 'text-slate-200', size: 'text-sm' };
+
+        function formatText(type) {
+            const input = document.getElementById('taskInput');
+            if (type === 'bold') input.classList.toggle('font-bold');
+            if (type === 'italic') input.classList.toggle('italic');
+            if (type === 'underline') input.classList.toggle('underline');
+        }
+
+        function formatColor(colorClass) {
+            currentFormatting.style = colorClass;
+        }
+
+        function formatSize(sizeClass) {
+            currentFormatting.size = sizeClass;
+        }
+
+        function updateWeekProgress() {
+            const startOfWeek = getStartOfWeek(selectedDate);
+            let total = 0;
+            let completed = 0;
+
+            for (let i = 0; i < 7; i++) {
+                const currentDay = new Date(startOfWeek);
+                currentDay.setDate(startOfWeek.getDate() + i);
+                const key = formatDateKey(currentDay);
+                if (tasks[key]) {
+                    tasks[key].forEach(t => {
+                        total++;
+                        if (t.completed) completed++;
+                    });
+                }
+            }
+
+            const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+            document.getElementById('weekProgressBar').style.width = `${percent}%`;
+            document.getElementById('weekProgressText').innerText = `${percent}%`;
+        }
+
         function addTask() {
+            if (isPastDate(selectedDate)) return;
             const input = document.getElementById('taskInput');
             const text = input.value.trim();
             if (!text) return;
@@ -150,7 +292,12 @@
             const key = formatDateKey(selectedDate);
             if (!tasks[key]) tasks[key] = [];
 
-            tasks[key].push({ text, completed: false });
+            let styleClasses = currentFormatting.style;
+            if (input.classList.contains('font-bold')) styleClasses += ' font-bold';
+            if (input.classList.contains('italic')) styleClasses += ' italic';
+            if (input.classList.contains('underline')) styleClasses += ' underline';
+
+            tasks[key].push({ text, completed: false, style: styleClasses, size: currentFormatting.size });
             saveAndRender();
             input.value = '';
         }
@@ -168,6 +315,66 @@
             saveAndRender();
         }
 
+        function clearCompletedTasks() {
+            const key = formatDateKey(selectedDate);
+            if (!tasks[key]) return;
+            tasks[key] = tasks[key].filter(t => !t.completed);
+            if (tasks[key].length === 0) delete tasks[key];
+            saveAndRender();
+        }
+
+        function moveTaskToTomorrow(index) {
+            const currentKey = formatDateKey(selectedDate);
+            const task = tasks[currentKey][index];
+
+            tasks[currentKey].splice(index, 1);
+            if (tasks[currentKey].length === 0) delete tasks[currentKey];
+
+            const tomorrow = new Date(selectedDate);
+            tomorrow.setDate(selectedDate.getDate() + 1);
+            const tomorrowKey = formatDateKey(tomorrow);
+
+            if (!tasks[tomorrowKey]) tasks[tomorrowKey] = [];
+            tasks[tomorrowKey].push(task);
+
+            saveAndRender();
+        }
+
+        function openRepeatModal(index) {
+            activeRepeatTask = { index, task: tasks[formatDateKey(selectedDate)][index] };
+            document.getElementById('repeatTaskTitle').innerText = `"${activeRepeatTask.task.text}"`;
+            document.getElementById('repeatModal').classList.remove('hidden');
+        }
+
+        function closeRepeatModal() {
+            activeRepeatTask = null;
+            document.getElementById('repeatModal').classList.add('hidden');
+        }
+
+        function applyRepeat(period) {
+            if (!activeRepeatTask) return;
+            const baseDate = new Date(selectedDate);
+            
+            // Повторим задачу на следующие 30 дней, недели или на 3 года вперед
+            let iterations = period === 'day' ? 30 : (period === 'week' ? 12 : 3);
+
+            for (let i = 1; i <= iterations; i++) {
+                let targetDate = new Date(baseDate);
+                if (period === 'day') targetDate.setDate(baseDate.getDate() + i);
+                if (period === 'week') targetDate.setDate(baseDate.getDate() + (i * 7));
+                if (period === 'year') targetDate.setFullYear(baseDate.getFullYear() + i);
+
+                let targetKey = formatDateKey(targetDate);
+                if (!tasks[targetKey]) tasks[targetKey] = [];
+                // Добавляем копию задачи
+                tasks[targetKey].push({ ...activeRepeatTask.task, completed: false });
+            }
+
+            closeRepeatModal();
+            saveAndRender();
+            alert('Задача успешно настроена на повторение!');
+        }
+
         function jumpToToday() {
             selectedDate = new Date();
             renderApp();
@@ -176,6 +383,8 @@
         function saveAndRender() {
             localStorage.setItem('plan_nedeli_storage', JSON.stringify(tasks));
             renderTaskList();
+            updateWeekProgress();
+            renderWeekStrip();
         }
 
         function escapeHtml(text) {
